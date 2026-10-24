@@ -1,0 +1,10 @@
+# EdgeMinutes dependencies (tested on Windows 10, Python 3.12, CPU only)
+# Install CPU-only PyTorch first to avoid a multi-GB CUDA download:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+streamlit>=1.40
+faster-whisper>=1.0
+transformers>=4.40
+torch
+sentencepiece
+rouge-score
+pytest

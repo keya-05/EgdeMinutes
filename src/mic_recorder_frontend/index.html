@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #31333f; background: transparent; }
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 2px; }
+  button { font-size: 16px; padding: 12px 20px; border-radius: 8px; border: 1px solid #d0d0d8;
+           background: #ffffff; color: #31333f; cursor: pointer; -webkit-appearance: none; }
+  button.rec { background: #ff4b4b; border-color: #ff4b4b; color: #fff; }
+  button:disabled { opacity: 0.5; }
+  #timer { font-variant-numeric: tabular-nums; font-size: 20px; min-width: 60px; }
+  #msg { font-size: 14px; color: #6b6d7a; margin-top: 6px; min-height: 18px; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #fafafa; }
+    button { background: #262730; color: #fafafa; border-color: #4a4b55; }
+    #msg { color: #a3a4ad; }
+  }
+</style>
+</head>
+<body>
+<div class="row">
+  <button id="btn" type="button">● Start recording</button>
+  <span id="timer">00:00</span>
+</div>
+<div id="msg">Tap once to start, tap again to stop.</div>
+<script>
+// Minimal Streamlit component protocol (no build step): messages to the parent page.
+function send(type, data) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*");
+}
+
+const btn = document.getElementById("btn");
+const timer = document.getElementById("timer");
+const msg = document.getElementById("msg");
+let recorder = null, stream = null, chunks = [], startedAt = 0, tick = null;
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
+// iOS Safari records AAC in MP4; Chrome/Firefox/Edge record Opus in WebM/Ogg.
+function pickMimeType() {
+  const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+  if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+  return candidates.find(function (m) { return MediaRecorder.isTypeSupported(m); }) || "";
+}
+
+async function start() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    msg.textContent = "Microphone unavailable: open this page over HTTPS (or localhost).";
+    return;
+  }
+  if (!window.MediaRecorder) {
+    msg.textContent = "This browser cannot record audio (MediaRecorder missing). Use Upload audio.";
+    return;
+  }
+  try {
+    // Called directly from the tap, as iOS requires a user gesture.
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    msg.textContent = "Microphone blocked (" + err.name + "). Allow microphone access for this site and try again.";
+    return;
+  }
+  const mimeType = pickMimeType();
+  chunks = [];
+  try {
+    recorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+  } catch (err) {
+    msg.textContent = "Could not start recorder (" + err.name + ").";
+    stream.getTracks().forEach(function (t) { t.stop(); });
+    return;
+  }
+  recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+  recorder.onstop = finish;
+  recorder.start(1000);
+  startedAt = Date.now();
+  timer.textContent = "00:00";
+  tick = setInterval(function () { timer.textContent = fmt(Date.now() - startedAt); }, 250);
+  btn.textContent = "■ Stop recording";
+  btn.classList.add("rec");
+  msg.textContent = "Recording…";
+}
+
+function stop() {
+  clearInterval(tick);
+  btn.disabled = true;
+  msg.textContent = "Processing…";
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+  if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+}
+
+function reset() {
+  btn.disabled = false;
+  btn.textContent = "● Start recording";
+  btn.classList.remove("rec");
+  recorder = null;
+}
+
+function finish() {
+  const durationMs = Date.now() - startedAt;
+  const type = (recorder && recorder.mimeType) || (chunks[0] && chunks[0].type) || "audio/mp4";
+  const blob = new Blob(chunks, { type: type });
+  if (!blob.size) {
+    msg.textContent = "Nothing was recorded. Try again and speak for a few seconds.";
+    reset();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onloadend = function () {
+    send("streamlit:setComponentValue", {
+      dataType: "json",
+      value: { b64: String(reader.result).split(",")[1], mime: type, size: blob.size,
+               duration_ms: durationMs, id: Date.now() }
+    });
+    msg.textContent = "Recorded " + fmt(durationMs) + ". Now tap Generate Meeting Minutes.";
+    reset();
+  };
+  reader.readAsDataURL(blob);
+}
+
+btn.addEventListener("click", function () {
+  if (recorder && recorder.state === "recording") stop(); else start();
+});
+
+send("streamlit:componentReady", { apiVersion: 1 });
+send("streamlit:setFrameHeight", { height: 96 });
+</script>
+</body>
+</html>

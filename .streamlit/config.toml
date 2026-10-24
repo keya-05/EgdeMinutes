@@ -1,0 +1,8 @@
+[browser]
+# Privacy: do not send Streamlit usage statistics.
+gatherUsageStats = false
+
+[server]
+# Avoids the file watcher scanning torch/transformers internals on every rerun.
+fileWatcherType = "none"
+maxUploadSize = 200

@@ -1,0 +1,15 @@
+Aditi: Good morning everyone. Let's start the weekly project meeting for the EdgeMinutes NLP project.
+Rahul: Morning. The main item today is the final submission, which is due on November 14.
+Aditi: Right. We still need to finish the literature review and the presentation slides.
+Rahul: I tested the speech recognition with the Whisper tiny model and it works well for clear English audio, but it struggles with background noise.
+Aditi: That is a known limitation. We should mention it in the report.
+Rahul: Agreed. After comparing the options, we decided to use DistilBART for summarization because it runs on a laptop CPU without any paid API.
+Aditi: Good. I will complete the literature review by Friday.
+Rahul: I will prepare the presentation slides by next Monday.
+Aditi: Rahul, can you also record a short demo video before the submission deadline?
+Rahul: Sure, I can do that.
+Aditi: Someone also needs to test the app on an Android phone, but we have not decided who will do it.
+Rahul: We also need to update the README with the evaluation results.
+Aditi: Do we have the ROUGE reference summaries ready?
+Rahul: Not yet, I am not sure when the faculty will share them.
+Aditi: Okay, let's keep that open for now. Thanks everyone, see you next week.
